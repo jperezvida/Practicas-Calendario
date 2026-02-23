@@ -11,14 +11,12 @@ interface Props {
 
 const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) => {
   const [text, setText] = useState('');
-  const [type, setType] = useState<'diario' | 'plan' | 'vacaciones'>('plan');
+  const [type, setType] = useState<'diario' | 'plan' | 'falta'>('plan');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([currentUser.name]);
   
-  // FECHAS (Por defecto hoy)
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
-
   const [isSaving, setIsSaving] = useState(false);
 
   const toggleParticipant = (userName: string) => {
@@ -32,17 +30,14 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
     setIsSaving(true);
 
     try {
-      // 1. Calcular todas las fechas entre Inicio y Fin
       const start = new Date(startDate);
       const end = new Date(endDate);
       const datesToCreate: string[] = [];
 
-      // Bucle para sacar cada día
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         datesToCreate.push(new Date(d).toISOString().split('T')[0]);
       }
 
-      // 2. Crear una entrada por cada día
       const promises = datesToCreate.map(dateStr => 
         dbService.addEntry({
           date: dateStr,
@@ -55,8 +50,8 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
       );
 
       await Promise.all(promises);
-      onSuccess(); // Recargar calendario
-      onClose();   // Cerrar modal
+      onSuccess(); 
+      onClose();   
       
     } catch (error) {
       console.error(error);
@@ -70,45 +65,29 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         
-        {/* CABECERA */}
         <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
           <h3 className="text-lg font-bold text-gray-800">Nuevo Evento</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
 
         <div className="p-6 space-y-4">
-          
-          {/* SELECTOR DE FECHAS (RANGO) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Desde</label>
-              <input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-pink-500 outline-none"
-              />
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"/>
             </div>
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Hasta</label>
-              <input 
-                type="date" 
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-pink-500 outline-none"
-              />
+              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"/>
             </div>
           </div>
 
-          {/* TIPO */}
           <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
             <button onClick={() => setType('diario')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'diario' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>DIARIO</button>
             <button onClick={() => setType('plan')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'plan' ? 'bg-white shadow text-green-600' : 'text-gray-400'}`}>PLAN</button>
-            <button onClick={() => { setType('vacaciones'); setText('Vacaciones'); }} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'vacaciones' ? 'bg-white shadow text-purple-600' : 'text-gray-400'}`}>VACACIONES</button>
+            <button onClick={() => { setType('falta'); setText('Falta Injustificada'); }} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'falta' ? 'bg-white shadow text-red-600' : 'text-gray-400'}`}>FALTA</button>
           </div>
 
-          {/* PARTICIPANTES */}
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Participantes</p>
             <div className="flex flex-wrap gap-2">
@@ -129,18 +108,17 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
             </div>
           </div>
 
-          {/* TEXTO */}
           <textarea 
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Descripción del evento..."
-            className="w-full p-3 border rounded-xl text-sm h-24 focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+            placeholder="Descripción..."
+            className="w-full p-3 border rounded-xl text-sm h-24 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
           />
 
           <button 
             onClick={handleSave}
             disabled={isSaving || !text.trim()}
-            className="w-full py-3 bg-pink-600 text-white rounded-xl font-bold hover:bg-pink-700 transition disabled:opacity-50"
+            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50"
           >
             {isSaving ? 'Guardando...' : 'Crear Evento'}
           </button>
