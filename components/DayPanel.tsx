@@ -48,35 +48,43 @@ const DayPanel: React.FC<Props> = ({ date, entries, currentUser, onClose, onEntr
     }
   };
 
+  // --- HANDLE SAVE CON DETECTOR DE ERRORES ---
   const handleSave = async () => {
     if (!text.trim()) return;
     const finalParticipants = selectedParticipants.length > 0 ? selectedParticipants : [currentUser.name];
 
-    if (editingId) {
-      const originalEntry = entries.find(e => e.id === editingId);
-      if (originalEntry) {
-        await dbService.updateEntry({
-          ...originalEntry,
+    try {
+      if (editingId) {
+        const originalEntry = entries.find(e => e.id === editingId);
+        if (originalEntry) {
+          await dbService.updateEntry({
+            ...originalEntry,
+            text,
+            type,
+            participants: finalParticipants
+          });
+        }
+      } else {
+        await dbService.addEntry({
+          date,
+          person: currentUser.name,        
+          participants: finalParticipants, 
           text,
           type,
-          participants: finalParticipants
-        });
+          completed: false
+        } as any);
       }
-    } else {
-      await dbService.addEntry({
-        date,
-        person: currentUser.name,        
-        participants: finalParticipants, 
-        text,
-        type,
-        completed: false
-      } as any);
-    }
 
-    setText('');
-    setEditingId(null);
-    setSelectedParticipants([currentUser.name]); 
-    onEntryChange();
+      setText('');
+      setEditingId(null);
+      setSelectedParticipants([currentUser.name]); 
+      onEntryChange();
+
+    } catch (error: any) {
+      // SI ALGO FALLA, SALTARÁ ESTA ALERTA GIGANTE EN PANTALLA
+      console.error("ERROR OCULTO:", error);
+      alert("⚠️ ERROR AL GUARDAR: " + (error?.message || JSON.stringify(error)));
+    }
   };
 
   const toggleParticipant = (userName: string) => {
