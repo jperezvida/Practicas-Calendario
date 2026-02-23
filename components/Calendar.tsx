@@ -31,7 +31,6 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1, 12, 0, 0);
     const lastDay = new Date(year, month + 1, 0, 12, 0, 0);
-    
     let startOffset = firstDay.getDay() - 1;
     if (startOffset === -1) startOffset = 6;
     
@@ -90,7 +89,7 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <button onClick={() => setCurrentDate(new Date())} className="px-4 py-1 text-sm font-bold text-pink-600 hover:bg-pink-50 rounded-lg transition">Hoy</button>
+          <button onClick={() => setCurrentDate(new Date())} className="px-4 py-1 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition">Hoy</button>
           <button onClick={() => navigate(1)} className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-gray-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
@@ -126,17 +125,13 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
           }
 
           return (
-            <div 
-              key={idx} 
-              onClick={() => onDateClick(dateStr)}
-              className={cellClasses}
-            >
+            <div key={idx} onClick={() => onDateClick(dateStr)} className={cellClasses}>
               {isBusy && day.isCurrentMonth && (
                 <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full animate-pulse shadow-sm ${isVeryBusy ? 'bg-red-500 shadow-red-200' : 'bg-orange-400 shadow-orange-200'}`} />
               )}
               
               <div className="flex justify-between items-center mb-1">
-                <span className={`text-xs font-bold ${isToday ? 'w-7 h-7 rounded-full bg-pink-600 text-white flex items-center justify-center shadow-lg' : day.isCurrentMonth ? 'text-gray-800' : 'text-gray-300'}`}>
+                <span className={`text-xs font-bold ${isToday ? 'w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg' : day.isCurrentMonth ? 'text-gray-800' : 'text-gray-300'}`}>
                   {day.date.getDate()}
                 </span>
               </div>
@@ -145,19 +140,18 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
                 {dayEntries.slice(0, 10).map(entry => {
                   const bgStyle = getMultiColorBackground(entry);
                   const isPlan = entry.type === 'plan';
-                  const isVacation = entry.type === 'vacaciones';
+                  const isFalta = entry.type === 'falta';
                   const primaryUser = USERS.find(u => u.name === entry.person);
                   
-                  if (isVacation) {
+                  // LOGICA FALTA: Raya diagonal negra + color de usuario
+                  if (isFalta) {
                     return (
-                      <span 
+                      <div 
                         key={entry.id}
-                        title={`Vacaciones: ${entry.person}`}
-                        style={{ color: primaryUser?.color || '#ccc' }}
-                        className="text-[10px] leading-none transform -rotate-45"
-                      >
-                        ✈️
-                      </span>
+                        title={`Falta: ${entry.person}`}
+                        className="h-2 w-2 rounded-full border border-gray-900 shadow-sm"
+                        style={{ background: `linear-gradient(135deg, #111827 50%, ${primaryUser?.color || '#ccc'} 50%)` }}
+                      />
                     );
                   }
 
@@ -175,25 +169,26 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
                 {dayEntries.slice(0, 5).map(entry => {
                   const bgStyle = getMultiColorBackground(entry);
                   const isPlan = entry.type === 'plan';
-                  const isVacation = entry.type === 'vacaciones';
+                  const isFalta = entry.type === 'falta';
                   const isDone = isPlan && entry.completed;
                   const participantsCount = entry.participants?.length || 1;
                   const primaryUser = USERS.find(u => u.name === entry.person);
                   const isMulti = participantsCount > 1;
 
-                  // 1. SI ES VACACIONES: AVIÓN
-                  if (isVacation) {
+                  // 1. SI ES FALTA: Raya de la muerte roja/negra con X
+                  if (isFalta) {
                     return (
                        <div 
                         key={entry.id} 
-                        className="text-[9px] truncate px-1.5 py-0.5 rounded shadow-sm font-semibold transition-all border border-purple-100 bg-purple-50 text-purple-700 flex items-center gap-1"
+                        className="text-[9px] truncate px-1.5 py-0.5 rounded shadow-sm font-semibold transition-all border border-gray-900 text-white flex items-center gap-1"
+                        style={{ background: `linear-gradient(135deg, #111827 30%, ${primaryUser?.color || '#ef4444'} 150%)` }}
                       >
-                        ✈️ {entry.person}
+                        ❌ {entry.person}
                       </div>
                     );
                   }
 
-                  // 2. TAREA NORMAL (PLAN O DIARIO)
+                  // 2. TAREA NORMAL
                   let itemStyle: React.CSSProperties = {
                     opacity: isDone ? 0.4 : 1,
                     textDecoration: isDone ? 'line-through' : 'none'
@@ -203,17 +198,15 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
 
                   if (isPlan) {
                      if (isMulti) {
-                        // PLAN MULTI: Borde degradado (Truco CSS)
                         itemStyle = {
                            ...itemStyle,
                            backgroundImage: `linear-gradient(#fff, #fff), ${bgStyle}`,
                            backgroundOrigin: 'border-box',
                            backgroundClip: 'padding-box, border-box',
-                           border: '1px solid transparent', // Borde transparente para ver el degradado
-                           color: '#374151' // Texto gris oscuro
+                           border: '1px solid transparent', 
+                           color: '#374151' 
                         };
                      } else {
-                        // PLAN SINGLE: Borde sólido normal
                         itemStyle = {
                            ...itemStyle,
                            backgroundColor: '#ffffff',
@@ -222,7 +215,6 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
                         };
                      }
                   } else {
-                     // DIARIO: Fondo relleno
                      itemStyle = {
                         ...itemStyle,
                         background: bgStyle,
@@ -233,11 +225,7 @@ const Calendar: React.FC<Props> = ({ viewType, currentDate, setCurrentDate, entr
                   }
 
                   return (
-                    <div 
-                      key={entry.id} 
-                      className={itemClasses}
-                      style={itemStyle}
-                    >
+                    <div key={entry.id} className={itemClasses} style={itemStyle}>
                       {isDone && <span>✓</span>}
                       {entry.text}
                     </div>
