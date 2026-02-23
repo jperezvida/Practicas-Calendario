@@ -12,8 +12,7 @@ export interface Entry {
   id: string;
   date: string; // YYYY-MM-DD
   text: string;
-  // AQUÍ AÑADIMOS 'vacaciones'
-  type: 'diario' | 'plan' | 'vacaciones';
+  type: 'diario' | 'plan' | 'falta'; // <--- CAMBIO AQUÍ
   person: string;           
   participants?: string[];  
   completed?: boolean;
