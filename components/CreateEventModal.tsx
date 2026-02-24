@@ -3,11 +3,7 @@ import { User } from '../types';
 import { USERS } from '../constants';
 import { dbService } from '../services/dbService';
 
-interface Props {
-  currentUser: User;
-  onClose: () => void;
-  onSuccess: () => void;
-}
+interface Props { currentUser: User; onClose: () => void; onSuccess: () => void; }
 
 const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) => {
   const [text, setText] = useState('');
@@ -17,44 +13,44 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const [repeatWeeks, setRepeatWeeks] = useState(0); // <--- NUEVO ESTADO PARA RECURRENCIA
   const [isSaving, setIsSaving] = useState(false);
 
-  const toggleParticipant = (userName: string) => {
-    setSelectedParticipants(prev => 
-      prev.includes(userName) ? prev.filter(p => p !== userName) : [...prev, userName]
-    );
-  };
+  const toggleParticipant = (userName: string) => setSelectedParticipants(prev => prev.includes(userName) ? prev.filter(p => p !== userName) : [...prev, userName]);
 
   const handleSave = async () => {
     if (!text.trim()) return;
     setIsSaving(true);
-
     try {
+      const datesToCreate: string[] = [];
       const start = new Date(startDate);
       const end = new Date(endDate);
-      const datesToCreate: string[] = [];
 
+      // 1. Rango inicial
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         datesToCreate.push(new Date(d).toISOString().split('T')[0]);
+      }
+      // 2. Repeticiones (Suma 7 días por cada semana elegida a todas las fechas del rango)
+      if (repeatWeeks > 0) {
+        const initialDates = [...datesToCreate];
+        for (let w = 1; w <= repeatWeeks; w++) {
+          initialDates.forEach(dateStr => {
+            const d = new Date(dateStr);
+            d.setDate(d.getDate() + (w * 7));
+            datesToCreate.push(d.toISOString().split('T')[0]);
+          });
+        }
       }
 
       const promises = datesToCreate.map(dateStr => 
         dbService.addEntry({
-          date: dateStr,
-          person: currentUser.name,
-          participants: selectedParticipants.length > 0 ? selectedParticipants : [currentUser.name],
-          text,
-          type,
-          completed: false
+          date: dateStr, person: currentUser.name, participants: selectedParticipants.length > 0 ? selectedParticipants : [currentUser.name],
+          text, type, completed: false
         })
       );
-
       await Promise.all(promises);
-      onSuccess(); 
-      onClose();   
-      
+      onSuccess(); onClose();   
     } catch (error) {
-      console.error(error);
       alert('Error al crear los eventos');
     } finally {
       setIsSaving(false);
@@ -64,68 +60,52 @@ const CreateEventModal: React.FC<Props> = ({ currentUser, onClose, onSuccess }) 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        
         <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
           <h3 className="text-lg font-bold text-gray-800">Nuevo Evento</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
-
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Desde</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"/>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium outline-none"/>
             </div>
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Hasta</label>
-              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"/>
+              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-medium outline-none"/>
             </div>
           </div>
 
+          {/* SELECTOR DE RECURRENCIA */}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">🔁 Repetir automáticamente</label>
+            <select value={repeatWeeks} onChange={(e) => setRepeatWeeks(Number(e.target.value))} className="w-full p-2 border rounded-lg text-sm font-medium bg-gray-50 outline-none">
+              <option value={0}>No repetir (Solo estas fechas)</option>
+              <option value={4}>Cada semana (Durante 1 Mes)</option>
+              <option value={8}>Cada semana (Durante 2 Meses)</option>
+            </select>
+          </div>
+
           <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
-            <button onClick={() => setType('diario')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'diario' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>DIARIO</button>
-            <button onClick={() => setType('plan')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'plan' ? 'bg-white shadow text-green-600' : 'text-gray-400'}`}>PLAN</button>
-            <button onClick={() => { setType('falta'); setText('Falta Injustificada'); }} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition ${type === 'falta' ? 'bg-white shadow text-red-600' : 'text-gray-400'}`}>FALTA</button>
+            <button onClick={() => setType('diario')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg ${type === 'diario' ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>DIARIO</button>
+            <button onClick={() => setType('plan')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg ${type === 'plan' ? 'bg-white shadow text-green-600' : 'text-gray-400'}`}>PLAN</button>
+            <button onClick={() => { setType('falta'); setText('Falta Injustificada'); }} className={`flex-1 py-2 text-[10px] font-bold rounded-lg ${type === 'falta' ? 'bg-white shadow text-red-600' : 'text-gray-400'}`}>FALTA</button>
           </div>
 
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Participantes</p>
             <div className="flex flex-wrap gap-2">
               {USERS.map(user => (
-                <button
-                  key={user.name}
-                  onClick={() => toggleParticipant(user.name)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
-                    selectedParticipants.includes(user.name) 
-                      ? 'bg-gray-800 text-white border-gray-800' 
-                      : 'bg-white text-gray-500 border-gray-200'
-                  }`}
-                >
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: user.color }} />
-                  {user.name}
+                <button key={user.name} onClick={() => toggleParticipant(user.name)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${selectedParticipants.includes(user.name) ? 'bg-gray-800 text-white' : 'bg-white text-gray-500'}`}>
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: user.color }} /> {user.name}
                 </button>
               ))}
             </div>
           </div>
-
-          <textarea 
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Descripción..."
-            className="w-full p-3 border rounded-xl text-sm h-24 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-          />
-
-          <button 
-            onClick={handleSave}
-            disabled={isSaving || !text.trim()}
-            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50"
-          >
-            {isSaving ? 'Guardando...' : 'Crear Evento'}
-          </button>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Descripción..." className="w-full p-3 border rounded-xl text-sm h-20 outline-none resize-none" />
+          <button onClick={handleSave} disabled={isSaving || !text.trim()} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50">{isSaving ? 'Guardando...' : 'Crear Eventos'}</button>
         </div>
       </div>
     </div>
   );
 };
-
 export default CreateEventModal;
