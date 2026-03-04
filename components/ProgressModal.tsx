@@ -9,6 +9,7 @@ const ProgressModal: React.FC<Props> = ({ currentUser, onClose }) => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [myEndDate, setMyEndDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
   const isViewer = currentUser.role === 'VIEWER';
   const editors = USERS.filter(u => u.role === 'EDITOR');
@@ -40,6 +41,61 @@ const ProgressModal: React.FC<Props> = ({ currentUser, onClose }) => {
     return diffDays >= 0 ? diffDays : 0;
   };
 
+  // --- NUEVA FUNCIÓN MÁGICA PARA GENERAR EL INFORME ---
+  const downloadReport = async (userName: string) => {
+    setIsGenerating(userName);
+    try {
+      const allEntries = await dbService.getEntries();
+      
+      // Filtramos solo las de esta persona y las ordenamos desde la más antigua a la más nueva
+      const userEntries = allEntries
+        .filter(e => e.person === userName || e.participants?.includes(userName))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      if (userEntries.length === 0) {
+        alert(`No hay registros guardados para ${userName}.`);
+        setIsGenerating(null);
+        return;
+      }
+
+      // Creamos el texto del informe
+      let reportContent = `==================================================\n`;
+      reportContent += ` INFORME DE PRÁCTICAS - CÁTEDRA DE INNOVACIÓN\n`;
+      reportContent += `==================================================\n\n`;
+      reportContent += `🧑‍🎓 Alumno/a: ${userName}\n`;
+      reportContent += `📅 Fecha de generación: ${new Date().toLocaleDateString('es-ES')}\n`;
+      reportContent += `📊 Total de registros: ${userEntries.length}\n\n`;
+      reportContent += `--- HISTORIAL DE ACTIVIDAD ---\n\n`;
+
+      userEntries.forEach(entry => {
+        const typeLabel = entry.type.toUpperCase();
+        const status = entry.type === 'plan' ? (entry.completed ? '[✓ Completado]' : '[⏳ Pendiente]') : '';
+        const isFalta = entry.type === 'falta' ? '❌ ' : '';
+        
+        reportContent += `${isFalta}Fecha: ${entry.date} | Tipo: ${typeLabel} ${status}\n`;
+        reportContent += `📝 Tarea: ${entry.text}\n`;
+        reportContent += `--------------------------------------------------\n`;
+      });
+
+      // Creamos un archivo de texto virtual y forzamos la descarga
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Informe_Practicas_${userName.replace(/\s+/g, '_')}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Error al generar el informe:", error);
+      alert("Hubo un error al generar el documento.");
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
@@ -58,7 +114,18 @@ const ProgressModal: React.FC<Props> = ({ currentUser, onClose }) => {
                   <p className="text-4xl font-bold text-indigo-600">{calculateDaysLeft(myEndDate)} <span className="text-lg">días</span></p>
                 </div>
               )}
-              <button onClick={handleSave} disabled={isSaving || !myEndDate} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 mt-4">{isSaving ? 'Guardando...' : 'Guardar Fecha'}</button>
+              <button onClick={handleSave} disabled={isSaving || !myEndDate} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 mt-4">
+                {isSaving ? 'Guardando...' : 'Guardar Fecha'}
+              </button>
+              
+              {/* BOTÓN DEL ALUMNO PARA DESCARGAR SU INFORME */}
+              <button 
+                onClick={() => downloadReport(currentUser.name)} 
+                disabled={isGenerating === currentUser.name}
+                className="w-full py-3 bg-gray-100 text-gray-700 border border-gray-300 rounded-xl font-bold hover:bg-gray-200 transition mt-2 flex items-center justify-center gap-2"
+              >
+                📄 {isGenerating === currentUser.name ? 'Generando...' : 'Descargar mi informe de prácticas'}
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -69,7 +136,17 @@ const ProgressModal: React.FC<Props> = ({ currentUser, onClose }) => {
                   <div key={editor.name} className="flex items-center justify-between p-3 border bg-gray-50 rounded-xl shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: editor.color }}>{editor.name.charAt(0)}</div>
-                      <span className="font-bold text-gray-800 text-sm">{editor.name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-800 text-sm">{editor.name}</span>
+                        {/* BOTÓN DE LOS ADMINISTRADORES PARA DESCARGAR INFORME */}
+                        <button 
+                          onClick={() => downloadReport(editor.name)}
+                          disabled={isGenerating === editor.name}
+                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold text-left mt-0.5"
+                        >
+                          {isGenerating === editor.name ? 'Generando...' : '📄 Descargar Informe'}
+                        </button>
+                      </div>
                     </div>
                     <div className="text-right">
                       {daysLeft !== null ? (
